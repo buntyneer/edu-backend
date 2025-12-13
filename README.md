@@ -67,3 +67,5 @@ See `env.example` for the full list:
 - Common errors: invalid token (401), validation (400), signature mismatch (400)
 - For issues: open a ticket or email support@edumanege.com
 
+
+

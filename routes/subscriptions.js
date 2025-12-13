@@ -10,3 +10,5 @@ router.put("/", authMiddleware, validate(schemas.subscriptionUpdate), subscripti
 
 module.exports = router
 
+
+

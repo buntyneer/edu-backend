@@ -12,3 +12,5 @@ router.delete("/:id", authMiddleware, teacherController.deleteTeacher)
 
 module.exports = router
 
+
+
