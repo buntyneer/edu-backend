@@ -9,14 +9,46 @@ const { PrismaClient } = require("@prisma/client")
 
 dotenv.config()
 
+// Validate required environment variables
+const requiredEnvVars = ["DATABASE_URL", "JWT_SECRET"]
+const missingEnvVars = requiredEnvVars.filter((key) => !process.env[key])
+
+if (missingEnvVars.length > 0) {
+  console.warn(`⚠️  Warning: Missing required environment variables: ${missingEnvVars.join(", ")}`)
+  if (process.env.NODE_ENV === "production") {
+    console.error("❌ Cannot start in production without required environment variables")
+    process.exit(1)
+  }
+}
+
+// Log optional environment variables status
+const optionalEnvVars = {
+  RAZORPAY_KEY_ID: "Razorpay payments",
+  RAZORPAY_KEY_SECRET: "Razorpay payments",
+  GOOGLE_CLIENT_ID: "Google OAuth",
+  GOOGLE_CLIENT_SECRET: "Google OAuth",
+  CLOUDINARY_CLOUD_NAME: "Cloudinary file uploads",
+  FIREBASE_SERVICE_ACCOUNT: "Firebase notifications",
+}
+
+Object.entries(optionalEnvVars).forEach(([key, feature]) => {
+  if (!process.env[key]) {
+    console.log(`ℹ️  ${feature} disabled (${key} not set)`)
+  }
+})
+
 const app = express()
 const prisma = new PrismaClient()
 
 app.set("trust proxy", 1)
 app.use(helmet())
+const frontendUrls = process.env.FRONTEND_URL
+  ? process.env.FRONTEND_URL.split(",").map((url) => url.trim())
+  : ["http://localhost:3000"]
+
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL?.split(",") || ["http://localhost:3000"],
+    origin: frontendUrls,
     credentials: true,
   }),
 )
@@ -53,10 +85,22 @@ app.use(errorHandler)
 
 const PORT = process.env.PORT || 5000
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT} in ${process.env.NODE_ENV} mode`)
+  console.log(`✅ Server running on port ${PORT} in ${process.env.NODE_ENV || "development"} mode`)
+  console.log(`✅ CORS enabled for: ${frontendUrls.join(", ")}`)
+  if (process.env.DATABASE_URL) {
+    console.log(`✅ Database connected`)
+  }
 })
 
+// Graceful shutdown
 process.on("SIGINT", async () => {
+  console.log("\n🛑 Shutting down gracefully...")
+  await prisma.$disconnect()
+  process.exit(0)
+})
+
+process.on("SIGTERM", async () => {
+  console.log("\n🛑 Shutting down gracefully...")
   await prisma.$disconnect()
   process.exit(0)
 })

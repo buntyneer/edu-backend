@@ -4,18 +4,32 @@ const { PrismaClient } = require("@prisma/client")
 
 const prisma = new PrismaClient()
 
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
-})
+// Initialize Razorpay only if keys are present
+let razorpay = null
+if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
+  try {
+    razorpay = new Razorpay({
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_KEY_SECRET,
+    })
+  } catch (error) {
+    console.warn("Razorpay initialization failed:", error.message)
+  }
+}
 
 function verifySignature(orderId, paymentId, signature) {
+  if (!process.env.RAZORPAY_KEY_SECRET) {
+    throw new Error("Razorpay key secret not configured")
+  }
   const body = `${orderId}|${paymentId}`
   const expected = crypto.createHmac("sha256", process.env.RAZORPAY_KEY_SECRET).update(body).digest("hex")
   return expected === signature
 }
 
 async function createOrder({ amount, currency = "INR", receipt, notes }) {
+  if (!razorpay) {
+    throw new Error("Razorpay is not configured. Please set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET")
+  }
   return razorpay.orders.create({
     amount,
     currency,
@@ -34,6 +48,9 @@ async function recordTransaction(payload) {
 }
 
 async function handleWebhook(body, razorpaySignature) {
+  if (!process.env.RAZORPAY_KEY_SECRET) {
+    throw new Error("Razorpay webhook secret not configured")
+  }
   const payload = JSON.stringify(body)
   const expectedSignature = crypto
     .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
