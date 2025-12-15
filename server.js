@@ -6,9 +6,10 @@ const cookieParser = require("cookie-parser")
 const rateLimit = require("./middleware/rateLimit")
 const errorHandler = require("./middleware/errorHandler")
 const { PrismaClient } = require("@prisma/client")
+const passport = require("passport") // ✅ Added for Google OAuth
 
 dotenv.config()
-require("./config/passport"); // ← 1. line added for Google OAuth
+require("./config/passport") // ✅ Load passport strategy
 
 // Validate required environment variables
 const requiredEnvVars = ["DATABASE_URL", "JWT_SECRET"]
@@ -43,6 +44,8 @@ const prisma = new PrismaClient()
 
 app.set("trust proxy", 1)
 app.use(helmet())
+app.use(passport.initialize()) // ✅ Important for Google OAuth
+
 const frontendUrls = process.env.FRONTEND_URL
   ? process.env.FRONTEND_URL.split(",").map((url) => url.trim())
   : ["http://localhost:3000"]
@@ -62,7 +65,8 @@ app.get("/health", (req, res) => {
   res.status(200).json({ status: "OK", timestamp: new Date().toISOString() })
 })
 
-app.use("/api/auth", require("./routes/auth")); // ← 2. line added for auth routes
+// Routes
+app.use("/api/auth", require("./routes/auth")) // ✅ Auth routes
 app.use("/api/schools", require("./routes/schools"))
 app.use("/api/students", require("./routes/students"))
 app.use("/api/attendance", require("./routes/attendance"))
@@ -78,6 +82,7 @@ app.use("/api/license-keys", require("./routes/licenseKeys"))
 app.use("/api/teachers", require("./routes/teachers"))
 app.use("/api/subscriptions", require("./routes/subscriptions"))
 
+// 404 handler
 app.use((req, res) => {
   res.status(404).json({ error: "Route not found" })
 })
