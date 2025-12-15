@@ -26,12 +26,17 @@ router.get(
   "/google/callback",
   passport.authenticate("google", { session: false }),
   (req, res) => {
-    // Generate JWT token
-    const token = jwt.sign(
-      { id: req.user.id, email: req.user.email },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
+    // Generate JWT token compatible with auth middleware & /me endpoint
+    const payload = {
+      userId: req.user.id,
+      email: req.user.email,
+      schoolId: req.user.schoolId,
+      role: req.user.role,
+    };
+
+    const token = jwt.sign(payload, process.env.JWT_SECRET, {
+      expiresIn: "7d",
+    });
 
     // Redirect frontend with token
     res.redirect(`${process.env.FRONTEND_URL}/login/success?token=${token}`);
