@@ -8,6 +8,7 @@ const errorHandler = require("./middleware/errorHandler")
 const { PrismaClient } = require("@prisma/client")
 
 dotenv.config()
+require("./config/passport"); // ← 1. line added for Google OAuth
 
 // Validate required environment variables
 const requiredEnvVars = ["DATABASE_URL", "JWT_SECRET"]
@@ -61,7 +62,7 @@ app.get("/health", (req, res) => {
   res.status(200).json({ status: "OK", timestamp: new Date().toISOString() })
 })
 
-app.use("/api/auth", require("./routes/auth"))
+app.use("/api/auth", require("./routes/auth")); // ← 2. line added for auth routes
 app.use("/api/schools", require("./routes/schools"))
 app.use("/api/students", require("./routes/students"))
 app.use("/api/attendance", require("./routes/attendance"))
