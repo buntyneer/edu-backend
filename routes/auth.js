@@ -62,14 +62,23 @@ router.post("/google/firebase", async (req, res) => {
     const decodedToken = await admin.auth().verifyIdToken(token);
     const { email, name, picture } = decodedToken;
 
-    // Check if user exists
-    let user = await authController.findUserByEmail?.(email) ||
-               await authController.createUser?.({
-                 full_name: name,
-                 email,
-                 photo_url: picture,
-                 role: "admin",
-               });
+    // Check if user exists or create new
+    let user = null;
+    let isNewUser = false;
+
+    if (typeof authController.findUserByEmail === "function") {
+      user = await authController.findUserByEmail(email);
+    }
+
+    if (!user && typeof authController.createUser === "function") {
+      user = await authController.createUser({
+        full_name: name,
+        email,
+        photo_url: picture,
+        role: "admin",
+      });
+      isNewUser = true;
+    }
 
     if (!user) {
       return res.status(404).json({ error: "User not found" });
@@ -87,8 +96,7 @@ router.post("/google/firebase", async (req, res) => {
       expiresIn: "7d",
     });
 
-    res.json({ token: jwtToken, user });
-
+    res.json({ token: jwtToken, user, isNewUser });
   } catch (error) {
     console.error("Firebase token verification failed:", error);
     res.status(401).json({ error: "Invalid Firebase token" });
