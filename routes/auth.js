@@ -4,6 +4,7 @@ const authController = require("../controllers/authController");
 const authMiddleware = require("../middleware/auth");
 const passport = require("passport");
 const jwt = require("jsonwebtoken");
+const admin = require("firebase-admin");
 
 const router = express.Router();
 
@@ -14,7 +15,7 @@ router.post("/refresh", authController.refresh);
 router.post("/logout", authController.logout);
 router.get("/me", authMiddleware, authController.getMe);
 
-// Google OAuth routes
+// Google OAuth routes (Passport-based)
 router.get(
   "/google",
   passport.authenticate("google", {
@@ -26,7 +27,6 @@ router.get(
   "/google/callback",
   passport.authenticate("google", { session: false }),
   (req, res) => {
-    // Generate JWT token compatible with auth middleware & /me endpoint
     const payload = {
       userId: req.user.id,
       email: req.user.email,
@@ -38,9 +38,61 @@ router.get(
       expiresIn: "7d",
     });
 
-    // Redirect frontend with token
     res.redirect(`${process.env.FRONTEND_URL}/login/success?token=${token}`);
   }
 );
+
+// ✅ NEW: Firebase Google Login (for frontend Firebase button)
+router.post("/google/firebase", async (req, res) => {
+  const { token } = req.body;
+
+  if (!token) {
+    return res.status(400).json({ error: "Token is required" });
+  }
+
+  try {
+    // Initialize Firebase Admin if not already done
+    if (!admin.apps.length) {
+      const serviceAccount = require("../firebase-service-account.json");
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+      });
+    }
+
+    const decodedToken = await admin.auth().verifyIdToken(token);
+    const { email, name, picture } = decodedToken;
+
+    // Check if user exists
+    let user = await authController.findUserByEmail?.(email) ||
+               await authController.createUser?.({
+                 full_name: name,
+                 email,
+                 photo_url: picture,
+                 role: "admin",
+               });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Generate JWT
+    const payload = {
+      userId: user.id,
+      email: user.email,
+      schoolId: user.schoolId,
+      role: user.role,
+    };
+
+    const jwtToken = jwt.sign(payload, process.env.JWT_SECRET, {
+      expiresIn: "7d",
+    });
+
+    res.json({ token: jwtToken, user });
+
+  } catch (error) {
+    console.error("Firebase token verification failed:", error);
+    res.status(401).json({ error: "Invalid Firebase token" });
+  }
+});
 
 module.exports = router;
