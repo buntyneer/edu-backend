@@ -42,7 +42,7 @@ router.get(
   }
 );
 
-// ✅ NEW: Firebase Google Login (for frontend Firebase button)
+// ✅ Firebase Google Login (env se secret)
 router.post("/google/firebase", async (req, res) => {
   const { token } = req.body;
 
@@ -53,7 +53,7 @@ router.post("/google/firebase", async (req, res) => {
   try {
     // Initialize Firebase Admin if not already done
     if (!admin.apps.length) {
-      const serviceAccount = require("../firebase-service-account.json");
+      const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
       admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),
       });
